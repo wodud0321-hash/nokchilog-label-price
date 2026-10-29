@@ -402,13 +402,17 @@
     // 가운데 106도트만 잘라 1:1로 인쇄되게 한다. (내용은 1.75~10mm 구간이라 잘리지 않음)
     const PRINTABLE_DOTS = 106;
     const FULL_W = 12 * PX_PER_MM;
-    const W = PRINTABLE_DOTS, H = Math.round(22 * PX_PER_MM);
+    // 길이 방향: 프린터가 연속 테이프 앞뒤에 약 3mm(35도트)씩 이송 여백을 자동으로 붙임.
+    // PC 드라이버는 이 여백을 22mm 안에 포함하지만 앱은 이미지 바깥에 더하므로,
+    // 이미지는 22mm − 3mm×2 = 16mm(라벨 3~19mm 구간)만 담는다 → 최종 길이 22mm.
+    const FEED_MM = 3;
+    const W = PRINTABLE_DOTS, H = Math.round((22 - FEED_MM * 2) * PX_PER_MM);
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const ctx = c.getContext('2d');
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, W, H);
-    ctx.translate(-(FULL_W - PRINTABLE_DOTS) / 2, 0);
+    ctx.translate(-(FULL_W - PRINTABLE_DOTS) / 2, -FEED_MM * PX_PER_MM);
     // 시계방향 90°: 라벨(22×12) 좌표계를 세로 캔버스(12×22)에 배치
     ctx.translate(FULL_W, 0);
     ctx.rotate(Math.PI / 2);
