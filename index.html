@@ -397,14 +397,20 @@
   async function renderPNG() {
     await document.fonts.load('40px OnulDaisy12');
     const lay = measureLayout();
-    const W = Math.round(12 * PX_PER_MM), H = Math.round(22 * PX_PER_MM);
+    // QL 12mm 연속 테이프(DK-22214)의 실제 인쇄 폭은 106도트(약 9mm).
+    // 12mm 폭 이미지를 주면 iPrint&Label이 106도트에 맞춰 축소해 여백이 커지므로,
+    // 가운데 106도트만 잘라 1:1로 인쇄되게 한다. (내용은 1.75~10mm 구간이라 잘리지 않음)
+    const PRINTABLE_DOTS = 106;
+    const FULL_W = 12 * PX_PER_MM;
+    const W = PRINTABLE_DOTS, H = Math.round(22 * PX_PER_MM);
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const ctx = c.getContext('2d');
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, W, H);
+    ctx.translate(-(FULL_W - PRINTABLE_DOTS) / 2, 0);
     // 시계방향 90°: 라벨(22×12) 좌표계를 세로 캔버스(12×22)에 배치
-    ctx.translate(W, 0);
+    ctx.translate(FULL_W, 0);
     ctx.rotate(Math.PI / 2);
     ctx.scale(PX_PER_MM, PX_PER_MM);
 
@@ -441,7 +447,7 @@
   saveBtn.addEventListener('click', async () => {
     const blob = cachedBlob || await renderPNG();
     const digits = priceEdit.value.replace(/[^0-9]/g, '') || '0';
-    const name = 'price_' + digits + '_12x22mm.png';
+    const name = 'price_' + digits + '_12mm.png';
     const file = new File([blob], name, { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try { await navigator.share({ files: [file] }); return; }
