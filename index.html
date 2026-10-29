@@ -406,6 +406,9 @@
     // PC 드라이버는 이 여백을 22mm 안에 포함하지만 앱은 이미지 바깥에 더하므로,
     // 이미지는 22mm − 3mm×2 = 16mm(라벨 3~19mm 구간)만 담는다 → 최종 길이 22mm.
     const FEED_MM = 3;
+    // PC 출력물 기준 진하기 (실물 비교해서 조정하는 값)
+    const RULE_DOTS = 4;        // 선 두께(도트). 4도트 ≈ 0.34mm
+    const TEXT_BOLD_DOTS = 0.7; // 글자 외곽선 두께(도트). 0이면 원래 굵기
     const W = PRINTABLE_DOTS, H = Math.round((22 - FEED_MM * 2) * PX_PER_MM);
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
@@ -418,34 +421,31 @@
     ctx.rotate(Math.PI / 2);
     ctx.scale(PX_PER_MM, PX_PER_MM);
 
-    // 감열 프린터는 흑/백 두 가지만 찍으므로 회색(안티앨리어싱)을 남기지 않는다.
-    // 1) 글자를 그린 뒤 임계값으로 순수 흑백 변환
+    // 글자: 부드러운 가장자리(안티앨리어싱)를 그대로 둔다.
+    // (전부 흑백으로 자르면 곡선에 계단이 생겨 자글자글해짐)
     ctx.fillStyle = '#000';
     ctx.textBaseline = 'alphabetic';
+    // PC 출력처럼 진하게: 채우기 + 얇은 외곽선으로 획을 살짝 굵힘
+    ctx.strokeStyle = '#000';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = TEXT_BOLD_DOTS / PX_PER_MM;
     ctx.font = lay.won.size + 'px OnulDaisy12';
     ctx.textAlign = 'left';
     ctx.fillText('₩', lay.won.x, lay.won.base);
+    ctx.strokeText('₩', lay.won.x, lay.won.base);
     ctx.font = lay.num.size + 'px OnulDaisy12';
     ctx.textAlign = 'right';
     ctx.fillText(lay.num.text, lay.num.x, lay.num.base);
-
+    ctx.strokeText(lay.num.text, lay.num.x, lay.num.base);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    const img = ctx.getImageData(0, 0, W, H);
-    const d = img.data;
-    const THRESHOLD = 150; // 이보다 어두우면 검정 (50%보다 살짝 진하게)
-    for (let i = 0; i < d.length; i += 4) {
-      const v = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) < THRESHOLD ? 0 : 255;
-      d[i] = d[i + 1] = d[i + 2] = v;
-      d[i + 3] = 255;
-    }
-    ctx.putImageData(img, 0, 0);
 
-    // 2) 선은 픽셀 격자에 맞춘 꽉 찬 사각형으로 (두께 최소 3도트 ≈ 0.25mm)
+    // 선: 회색이 생기면 감열 인쇄에서 얇고 끊겨 보이므로,
+    //     픽셀 격자에 맞춘 꽉 찬 검정 사각형으로 (두께 RULE_DOTS)
     const offX = (FULL_W - PRINTABLE_DOTS) / 2;
     ctx.fillStyle = '#000';
     lay.rules.forEach(r => {
       // 라벨 좌표(mm) → 회전·잘라낸 이미지 좌표(px)
-      const thick = Math.max(3, Math.round(r.h * PX_PER_MM));
+      const thick = RULE_DOTS;
       const xCenter = FULL_W - (r.y + r.h / 2) * PX_PER_MM - offX;
       const x0 = Math.round(xCenter - thick / 2);
       const y0 = Math.round((r.x - FEED_MM) * PX_PER_MM);
